@@ -227,7 +227,7 @@ else {
     Write-Host "Scheduled task '$taskName' already exists, skip install" -ForegroundColor Red
 }
 
-$groupName = "docker-users"
+$dockerGroup = "docker-users"
 # Check if C:\ProgramData\Docker\config exists and create directory if it does not
 if (-not (Test-Path -Path $default_docker_data\config\Readme.md)) {
     New-Item -Path $default_docker_data\config -ItemType Directory | Out-Null
@@ -244,7 +244,7 @@ https://learn.microsoft.com/de-de/virtualization/windowscontainers/manage-docker
 You might configure the following settings in `daemon.json` to allow non-admin users access Docker:
 
 {
-    "group" : "$groupName"
+    "group" : "$dockerGroup"
 }
 
 Or activate the Scheduled Task "$taskName" to allow $unprivileged_user to access Docker.
@@ -257,22 +257,22 @@ Or activate the Scheduled Task "$taskName" to allow $unprivileged_user to access
 }
 
 # Check if the 'docker' group exists or create if it does not
-$group = Get-LocalGroup -Name $groupName -ErrorAction SilentlyContinue
+$group = Get-LocalGroup -Name $dockerGroup -ErrorAction SilentlyContinue
 if (-not $group) {
-    New-LocalGroup -Name $groupName
-    Write-Host "Created group: $groupName"
-    Add-LocalGroupMember -Group $groupName -Member $env:USERDOMAIN\$unprivileged_user -ErrorAction SilentlyContinue
-    Write-Host "Added user '$env:USERDOMAIN\$unprivileged_user' to group '$groupName'."
+    New-LocalGroup -Name $dockerGroup
+    Write-Host "Created group: $dockerGroup"
+    Add-LocalGroupMember -Group $dockerGroup -Member $env:USERDOMAIN\$unprivileged_user -ErrorAction SilentlyContinue
+    Write-Host "Added user '$env:USERDOMAIN\$unprivileged_user' to group '$dockerGroup'."
 }
 else {
-    Write-Host "Group '$groupName' already exists."
-    $userInGroup = Get-LocalGroupMember -Group $groupName -Member $unprivileged_user -ErrorAction SilentlyContinue
+    Write-Host "Group '$dockerGroup' already exists."
+    $userInGroup = Get-LocalGroupMember -Group $dockerGroup -Member $unprivileged_user -ErrorAction SilentlyContinue
     if (-not $userInGroup) {
-        Add-LocalGroupMember -Group $groupName -Member $env:USERDOMAIN\$unprivileged_user -ErrorAction SilentlyContinue
-        Write-Host "Added user '$env:USERDOMAIN\$unprivileged_user' to group '$groupName'."
+        Add-LocalGroupMember -Group $dockerGroup -Member $env:USERDOMAIN\$unprivileged_user -ErrorAction SilentlyContinue
+        Write-Host "Added user '$env:USERDOMAIN\$unprivileged_user' to group '$dockerGroup'."
     }
     else {
-        Write-Host "User '$env:USERDOMAIN\$unprivileged_user' is already in group '$groupName'."
+        Write-Host "User '$env:USERDOMAIN\$unprivileged_user' is already in group '$dockerGroup'."
     }
 }
 
