@@ -12,7 +12,7 @@ $default_path = "$env:ProgramFiles\Docker"
 $default_user = "$env:USERNAME"
 $default_installService = 'Y'
 $default_psExecutable = "$PSHome\pwsh.exe"
-$default_docker_data = "C:\ProgramData\Docker"
+$default_docker_data = "$env:ProgramData\Docker"
 
 ######################################
 # Prepare and get all the required information
