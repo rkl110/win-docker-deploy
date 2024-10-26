@@ -22,7 +22,8 @@ $adminUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "This script must be run as an administrator." -ForegroundColor Red
     exit
-} else {
+}
+else {
     $adminUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
     Write-Host "Script is running as administrator: $adminUser" -ForegroundColor Green
 }
@@ -50,11 +51,12 @@ $dockerService = Get-Service -Name "docker" -ErrorAction SilentlyContinue
 if ($installService -eq 'Y' -or $installService -eq 'y') {
     Write-Host "Install Docker as a service..."
     if ($null -ne $dockerService) {
-      Write-Host "Docker service already exists." -ForegroundColor Red
-      Write-Host "Exit here" -ForegroundColor Red
-      exit
+        Write-Host "Docker service already exists." -ForegroundColor Red
+        Write-Host "Exit here" -ForegroundColor Red
+        exit
     }
-} else {
+}
+else {
     Write-Host "Docker will not be installed as a service."
 }
 
@@ -72,7 +74,8 @@ Write-Host "Powershell executable: $psExecutable"
 if (-not (Test-Path -Path $install_path)) {
     New-Item -Path $install_path -ItemType Directory | Out-Null
     Write-Host "Created directory: $install_path"
-} else {
+}
+else {
     Write-Host "Directory already exists: $install_path"
 }
 
@@ -99,7 +102,8 @@ if ($hypervFeature.State -ne 'Enabled') {
     Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -NoRestart
     Write-Host "Hyper-V has been enabled. Please restart your computer to apply the changes."
     exit
-} else {
+}
+else {
     Write-Host "Hyper-V is already enabled."
 }
 
@@ -110,7 +114,8 @@ if ($containersFeature.State -ne 'Enabled') {
     Enable-WindowsOptionalFeature -Online -FeatureName Containers -NoRestart
     Write-Host "Containers feature has been enabled. Please restart your computer to apply the changes."
     exit
-} else {
+}
+else {
     Write-Host "Containers feature is already enabled."
 }
 
@@ -121,7 +126,8 @@ $pathList = $pathEnv -split ';'
 # Check if $install_path is in the list of paths
 if ($pathList -contains $install_path) {
     Write-Host "$install_path is already in the PATH variable."
-} else {
+}
+else {
     Write-Host "$install_path is not in the PATH."
     $newPath = "$pathEnv;$install_path"
     [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Machine)
@@ -135,7 +141,8 @@ if ($pathList -contains $install_path) {
 if ($installService -eq 'Y' -or $installService -eq 'y') {
     Write-Host "Installing Docker as a service..."
     Start-Process -FilePath $install_path\dockerd.exe -ArgumentList "--register-service"
-} else {
+}
+else {
     Write-Host "Skip installing Docker as a service..."
 }
 
@@ -143,10 +150,10 @@ if ($installService -eq 'Y' -or $installService -eq 'y') {
 $taskName = "FixDockerPipePermissions"
 $taskExists = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 if ($null -eq $taskExists) {
-  Write-Host "Scheduled task $taskName does not exist, deploying..."
+    Write-Host "Scheduled task $taskName does not exist, deploying..."
 
-  # Define the content to write to the file
-  $content = @"
+    # Define the content to write to the file
+    $content = @"
 # Script to fix Docker pipe permissions for non-privileged user
 
 `$account="$env:USERDOMAIN\$unprivileged_user"
@@ -160,45 +167,46 @@ if ($null -eq $taskExists) {
 Set-Acl -Path `$dInfo -AclObject `$dSec
 "@
 
-  # Deploy script to acces docker as non privileged user
-  $filePath = "$install_path/fix_docker_pip_permissions.ps1"
-  $content | Out-File -FilePath $filePath -Force
-  Write-Host "Script has been deployed to $filePath"
+    # Deploy script to acces docker as non privileged user
+    $filePath = "$install_path/fix_docker_pip_permissions.ps1"
+    $content | Out-File -FilePath $filePath -Force
+    Write-Host "Script has been deployed to $filePath"
 
-  # Create a scheduled task to run the script after Docker starts
-  $ActionParameters = @{
-    Execute  = $psExecutable
-    Argument = "-ExecutionPolicy Bypass -NonInteractive -NoLogo -NoProfile -Command `".\fix_docker_pip_permissions.ps1; exit `$LASTEXITCODE`""
-    WorkingDirectory = $install_path
-  }
+    # Create a scheduled task to run the script after Docker starts
+    $ActionParameters = @{
+        Execute          = $psExecutable
+        Argument         = "-ExecutionPolicy Bypass -NonInteractive -NoLogo -NoProfile -Command `".\fix_docker_pip_permissions.ps1; exit `$LASTEXITCODE`""
+        WorkingDirectory = $install_path
+    }
 
-  $Action = New-ScheduledTaskAction @ActionParameters
-  #$Principal = New-ScheduledTaskPrincipal -UserId $adminUser -LogonType Password -RunLevel Highest
-  $Principal = New-ScheduledTaskPrincipal -UserId 'NT AUTHORITY\SYSTEM' -LogonType ServiceAccount
-  $Settings = New-ScheduledTaskSettingsSet
+    $Action = New-ScheduledTaskAction @ActionParameters
+    #$Principal = New-ScheduledTaskPrincipal -UserId $adminUser -LogonType Password -RunLevel Highest
+    $Principal = New-ScheduledTaskPrincipal -UserId 'NT AUTHORITY\SYSTEM' -LogonType ServiceAccount
+    $Settings = New-ScheduledTaskSettingsSet
 
-  # Create a scheduled task trigger
-  $class = cimclass MSFT_TaskEventTrigger root/Microsoft/Windows/TaskScheduler
-  $trigger = $class | New-CimInstance -ClientOnly
-  $trigger.Enabled = $true
-  $trigger.Delay = 'PT5S'
-  $trigger.Subscription = @'
+    # Create a scheduled task trigger
+    $class = cimclass MSFT_TaskEventTrigger root/Microsoft/Windows/TaskScheduler
+    $trigger = $class | New-CimInstance -ClientOnly
+    $trigger.Enabled = $true
+    $trigger.Delay = 'PT5S'
+    $trigger.Subscription = @'
 <QueryList><Query Id="0" Path="Application"><Select Path="Application">*[System[Provider[@Name='docker'] and EventID=11]]</Select></Query></QueryList>
 '@
 
-  $RegSchTaskParameters = @{
-      TaskName    = $taskName
-      Description = 'Allow to access Docker pipe for non-privileged user'
-      TaskPath    = '\'
-      Action      = $Action
-      Principal   = $Principal
-      Settings    = $Settings
-      Trigger     = $Trigger
-  }
+    $RegSchTaskParameters = @{
+        TaskName    = $taskName
+        Description = 'Allow to access Docker pipe for non-privileged user'
+        TaskPath    = '\'
+        Action      = $Action
+        Principal   = $Principal
+        Settings    = $Settings
+        Trigger     = $Trigger
+    }
 
-  Register-ScheduledTask @RegSchTaskParameters
-  Write-Host "Scheduled task has been created to run the script after Docker starts."
-} else {
+    Register-ScheduledTask @RegSchTaskParameters
+    Write-Host "Scheduled task has been created to run the script after Docker starts."
+}
+else {
     Write-Host "Scheduled task '$taskName' already exists, skip install" -ForegroundColor Red
 }
 
@@ -207,6 +215,7 @@ if (($hypervFeature.State -eq 'Enabled') -and ($containersFeature.State -eq 'Ena
     Write-Host "Hyper-V and Containers already enabled."
     Write-Host "Starting Docker service..."
     Start-Service -Name "docker"
-} else {
+}
+else {
     Write-Host "Please restart your computer to apply the changes and enjoy Docker."
 }
