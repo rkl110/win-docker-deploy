@@ -51,9 +51,7 @@ $dockerService = Get-Service -Name "docker" -ErrorAction SilentlyContinue
 if ($installService -eq 'Y' -or $installService -eq 'y') {
     Write-Host "Install Docker as a service..."
     if ($null -ne $dockerService) {
-        Write-Host "Docker service already exists." -ForegroundColor Red
-        Write-Host "Exit here" -ForegroundColor Red
-        exit
+        Write-Host "Docker service already exists, skipping later" -ForegroundColor Red
     }
 }
 else {
@@ -88,9 +86,22 @@ Write-Host "Unzipping Docker to $install_path..."
 Expand-Archive -Path $docker_zip -DestinationPath $install_path -Force
 Write-Host "Unzip complete."
 
-Get-ChildItem -Path $install_path/docker -Recurse -File | Move-Item -Destination $install_path -Force
+# Stop Docker service if it is running
+if ($dockerService -and $dockerService.Status -eq 'Running') {
+    Write-Host "Docker service is already running. Stoping docker..." -ForegroundColor Yellow
+    Stop-Service -Name "docker" -Force
+}
+
+# Move the files to the install path and clean up old files
+Get-ChildItem -Path "$install_path/docker" -File | ForEach-Object {
+    $destinationPath = Join-Path -Path $install_path -ChildPath $_.Name
+    if (Test-Path -Path $destinationPath) {
+        Remove-Item -Path $destinationPath -Force
+    }
+    Move-Item -Path $_.FullName -Destination $install_path -Force
+}
+Write-Host "Moved files to $install_path"
 Remove-Item -Path $install_path/docker -Recurse -Force
-Write-Host "Move files to $install_path"
 
 # Clean up the zip file
 Remove-Item -Path $docker_zip
@@ -136,14 +147,18 @@ else {
     [System.Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Process)
     Write-Host "Updated the PATH variable for the current session."
 }
-
-# Deploy Service
-if ($installService -eq 'Y' -or $installService -eq 'y') {
-    Write-Host "Installing Docker as a service..."
-    Start-Process -FilePath $install_path\dockerd.exe -ArgumentList "--register-service"
+if ($null -eq $dockerService) {
+    # Deploy Service
+    if ($installService -eq 'Y' -or $installService -eq 'y') {
+        Write-Host "Installing Docker as a service..."
+        Start-Process -FilePath $install_path\dockerd.exe -ArgumentList "--register-service"
+    }
+    else {
+        Write-Host "Skip installing Docker as a service..."
+    }
 }
 else {
-    Write-Host "Skip installing Docker as a service..."
+    Write-Host "Docker service already exists..."
 }
 
 # Check if the scheduled task "FixDockerPipePermissions" exists
@@ -185,7 +200,7 @@ Set-Acl -Path `$dInfo -AclObject `$dSec
     $Settings = New-ScheduledTaskSettingsSet
 
     # Create a scheduled task trigger
-    $class = cimclass MSFT_TaskEventTrigger root/Microsoft/Windows/TaskScheduler
+    $class = Get-cimclass MSFT_TaskEventTrigger root/Microsoft/Windows/TaskScheduler
     $trigger = $class | New-CimInstance -ClientOnly
     $trigger.Enabled = $true
     $trigger.Delay = 'PT5S'
