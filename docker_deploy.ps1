@@ -12,6 +12,7 @@ $default_path = "$env:ProgramFiles\Docker"
 $default_user = "$env:USERNAME"
 $default_installService = 'Y'
 $default_psExecutable = "$PSHome\pwsh.exe"
+$default_docker_data = "C:\ProgramData\Docker"
 
 ######################################
 # Prepare and get all the required information
@@ -219,10 +220,60 @@ Set-Acl -Path `$dInfo -AclObject `$dSec
     }
 
     Register-ScheduledTask @RegSchTaskParameters
+    Disable-ScheduledTask -TaskName $taskName
     Write-Host "Scheduled task has been created to run the script after Docker starts."
 }
 else {
     Write-Host "Scheduled task '$taskName' already exists, skip install" -ForegroundColor Red
+}
+
+$groupName = "docker-users"
+# Check if C:\ProgramData\Docker\config exists and create directory if it does not
+if (-not (Test-Path -Path $default_docker_data\config\Readme.md)) {
+    New-Item -Path $default_docker_data\config -ItemType Directory | Out-Null
+    Write-Host "Created directory: $default_docker_data\config"
+
+    $content = @"
+# Readme for Docker configuration files
+
+Settings for Dockerd can be configured in the configuration file `daemon.json`.
+See the documentation for more information:
+https://docs.docker.com/reference/cli/dockerd/#/windows-configuration-file
+https://learn.microsoft.com/de-de/virtualization/windowscontainers/manage-docker/configure-docker-daemon
+
+You might configure the following settings in `daemon.json` to allow non-admin users access Docker:
+
+{
+    "group" : "$groupName"
+}
+
+Or activate the Scheduled Task "$taskName" to allow $unprivileged_user to access Docker.
+
+"@
+
+    $filePath = "$default_docker_data\config\Readme.md"
+    $content | Out-File -FilePath $filePath -Force
+    Write-Host "Readme file has been deployed to $filePath"
+}
+
+# Check if the 'docker' group exists or create if it does not
+$group = Get-LocalGroup -Name $groupName -ErrorAction SilentlyContinue
+if (-not $group) {
+    New-LocalGroup -Name $groupName
+    Write-Host "Created group: $groupName"
+    Add-LocalGroupMember -Group $groupName -Member $env:USERDOMAIN\$unprivileged_user -ErrorAction SilentlyContinue
+    Write-Host "Added user '$env:USERDOMAIN\$unprivileged_user' to group '$groupName'."
+}
+else {
+    Write-Host "Group '$groupName' already exists."
+    $userInGroup = Get-LocalGroupMember -Group $groupName -Member $unprivileged_user -ErrorAction SilentlyContinue
+    if (-not $userInGroup) {
+        Add-LocalGroupMember -Group $groupName -Member $env:USERDOMAIN\$unprivileged_user -ErrorAction SilentlyContinue
+        Write-Host "Added user '$env:USERDOMAIN\$unprivileged_user' to group '$groupName'."
+    }
+    else {
+        Write-Host "User '$env:USERDOMAIN\$unprivileged_user' is already in group '$groupName'."
+    }
 }
 
 # End of the script, Start Docker service or restart the computer
@@ -230,7 +281,13 @@ if (($hypervFeature.State -eq 'Enabled') -and ($containersFeature.State -eq 'Ena
     Write-Host "Hyper-V and Containers already enabled."
     Write-Host "Starting Docker service..."
     Start-Service -Name "docker"
+    Write-Host "Setup Docker has been completed.`n`n`n" -ForegroundColor Green
+    "$default_docker_data\config\Readme.md"
+    Get-Content -Path "$default_docker_data\config\Readme.md"
 }
 else {
-    Write-Host "Please restart your computer to apply the changes and enjoy Docker."
+    Write-Host "Please restart your computer to apply the changes and enjoy Docker." -ForegroundColor Yellow
+    Write-Host "Setup Docker has been completed.`n`n`n" -ForegroundColor Green
+    "$default_docker_data\config\Readme.md"
+    Get-Content -Path "$default_docker_data\config\Readme.md"
 }
