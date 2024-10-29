@@ -184,7 +184,7 @@ Set-Acl -Path `$dInfo -AclObject `$dSec
 "@
 
     # Deploy script to acces docker as non privileged user
-    $filePath = "$install_path/fix_docker_pip_permissions.ps1"
+    $filePath = "$install_path/fix_docker_pipe_permissions.ps1"
     $content | Out-File -FilePath $filePath -Force
     Write-Host "Script has been deployed to $filePath"
 
