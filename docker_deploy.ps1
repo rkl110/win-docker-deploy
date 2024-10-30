@@ -1,11 +1,12 @@
-# Last Update: 2024-10-26
+# Last Update: 2024-10-30
 # Powershell Script to deploy Docker and run as a non-admin user
 #Requires -RunAsAdministrator
 
 ######################################
 # Setup Variables
 $docker_source = "https://download.docker.com/win/static/stable/x86_64/"
-$docker_version = "docker-27.3.1.zip"
+$docker_page = Invoke-WebRequest -Uri $docker_source
+$docker_version = ($docker_page.Links | Where-Object { $_.href -match "docker-.*\.zip" } | Select-Object -Last 1).href
 $docker_url = "$docker_source$docker_version"
 $docker_zip = "$env:TEMP\$docker_version"
 $default_path = "$env:ProgramFiles\Docker"
@@ -68,6 +69,8 @@ Write-Host "Powershell executable: $psExecutable"
 
 ######################################
 # Start the installation process
+
+Write-Host "Try to Install Docker $docker_version"
 
 # Check if install_path exists and create directory if it does not
 if (-not (Test-Path -Path $install_path)) {
