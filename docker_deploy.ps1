@@ -191,7 +191,7 @@ Set-Acl -Path `$dInfo -AclObject `$dSec
     # Create a scheduled task to run the script after Docker starts
     $ActionParameters = @{
         Execute          = $psExecutable
-        Argument         = "-ExecutionPolicy Bypass -NonInteractive -NoLogo -NoProfile -Command `".\fix_docker_pip_permissions.ps1; exit `$LASTEXITCODE`""
+        Argument         = "-ExecutionPolicy Bypass -NonInteractive -NoLogo -NoProfile -Command `".\fix_docker_pipe_permissions.ps1; exit `$LASTEXITCODE`""
         WorkingDirectory = $install_path
     }
 
